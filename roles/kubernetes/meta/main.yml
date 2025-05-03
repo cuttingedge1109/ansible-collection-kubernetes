@@ -29,6 +29,7 @@ galaxy_info:
         - jammy
 
 dependencies:
+  - role: kubernetes_upgrade_check
   - role: kubeadm
     vars:
       kubeadm_version: "{{ kubernetes_version }}"

@@ -21,74 +21,30 @@ on:
       - main
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        scenario:
-          - cluster-api
-          - cluster-api-upgrade
-          - containerd
-          - helm
-          - upload-helm-chart
-        distro:
-          - rockylinux8
-          - rockylinux9
-          - ubuntu2004
-          - ubuntu2204
-        include:
-          - scenario: forget-package
-            distro: ubuntu2004
-    steps:
-      - name: Checkout project
-        uses: actions/checkout@v3
-
-      - name: Setup Python
-        uses: actions/setup-python@v2
-        with:
-          python-version: "3.10"
-          cache: pip
-
-      - name: Install Molecule
-        run: pip install -r requirements.txt
-
-      - name: Turn off swap
-        run: sudo swapoff -a
-
-      - name: Run Molecule
-        run: molecule test -s ${{ matrix.scenario }}
-        env:
-          MOLECULE_DISTRO: ${{ matrix.distro }}
-
   kubernetes:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
         version:
-          - 1.19.16
-          - 1.20.15
-          - 1.21.14
-          - 1.22.17
-          - 1.23.17
-          - 1.24.12
-          - 1.25.8
-          - 1.26.3
+          - 1.26.15
+          - 1.27.16
+          - 1.28.13
+          - 1.29.12
+          - 1.30.8
         distro:
-          - rockylinux8
           - rockylinux9
           - ubuntu2004
           - ubuntu2204
         scenario:
-          - aio
           - ha
     steps:
       - name: Checkout project
         uses: actions/checkout@v3
 
       - name: Setup Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v5
         with:
           python-version: "3.10"
           cache: pip
@@ -103,4 +59,46 @@ jobs:
         run: molecule test -s ${{ matrix.scenario }}
         env:
           MOLECULE_DISTRO: ${{ matrix.distro }}
+          KUBERNETES_VERSION: ${{ matrix.version }}
+
+  upgrades:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - old_version: 1.25.16
+            version: 1.26.15
+          - old_version: 1.26.15
+            version: 1.27.16
+          - old_version: 1.27.16
+            version: 1.28.13
+          - old_version: 1.28.13
+            version: 1.29.12
+          - old_version: 1.29.12
+            version: 1.30.8
+    steps:
+      - name: Checkout project
+        uses: actions/checkout@v3
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: pip
+
+      - name: Install Molecule
+        run: pip install -r requirements.txt
+
+      - name: Turn off swap
+        run: sudo swapoff -a
+
+      - name: Bump number of inotify watchers
+        run: sudo sysctl fs.inotify.max_user_watches=524288
+
+      - name: Run Molecule
+        run: molecule test -s cluster-upgrade
+        env:
+          OLD_KUBERNETES_VERSION: ${{ matrix.old_version }}
           KUBERNETES_VERSION: ${{ matrix.version }}

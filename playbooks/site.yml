@@ -16,19 +16,15 @@
   hosts: "{{ kubernetes_control_plane_group | default('controllers') }}"
   become: true
   roles:
-    - role: keepalived
+    - role: kube_vip
       tags:
-        - keepalived
-
-    - role: haproxy
-      tags:
-        - haproxy
+        - kube-vip
 
 - name: Install Kubernetes
   hosts: "{{ kubernetes_group | default('all') }}"
   become: true
   roles:
-    - role: containerd
+    - role: vexxhost.containers.containerd
       tags:
         - containerd
 

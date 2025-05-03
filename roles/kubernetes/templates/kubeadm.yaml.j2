@@ -1,9 +1,12 @@
 ---
+{% if kubernetes_version is ansible.builtin.version('1.22.0', '<') %}
 apiVersion: kubeadm.k8s.io/v1beta2
+{% else %}
+apiVersion: kubeadm.k8s.io/v1beta3
+{% endif %}
 kind: InitConfiguration
 localAPIEndpoint:
   advertiseAddress: "{{ kubernetes_node_ip }}"
-  bindPort: 16443
 nodeRegistration:
   kubeletExtraArgs:
 {% if kubernetes_allow_unsafe_swap %}
@@ -12,10 +15,16 @@ nodeRegistration:
     cgroups-per-qos: "false"
     enforce-node-allocatable: ""
     node-ip: "{{ kubernetes_node_ip }}"
+{% if kubernetes_version is ansible.builtin.version('1.24.0', '<') %}
     container-runtime: "remote"
+{% endif %}
     container-runtime-endpoint: "{{ kubelet_cri_socket }}"
 ---
+{% if kubernetes_version is ansible.builtin.version('1.22.0', '<') %}
 apiVersion: kubeadm.k8s.io/v1beta2
+{% else %}
+apiVersion: kubeadm.k8s.io/v1beta3
+{% endif %}
 kind: JoinConfiguration
 nodeRegistration:
   kubeletExtraArgs:
@@ -25,7 +34,9 @@ nodeRegistration:
     cgroups-per-qos: "false"
     enforce-node-allocatable: ""
     node-ip: "{{ kubernetes_node_ip }}"
+{% if kubernetes_version is ansible.builtin.version('1.24.0', '<') %}
     container-runtime: "remote"
+{% endif %}
     container-runtime-endpoint: "{{ kubelet_cri_socket }}"
 {% if (kubernetes_bootstrap_node is not defined) or (kubernetes_bootstrap_node is defined and inventory_hostname != kubernetes_bootstrap_node) %}
 discovery:
@@ -37,13 +48,17 @@ discovery:
 controlPlane:
   localAPIEndpoint:
     advertiseAddress: "{{ kubernetes_node_ip }}"
-    bindPort: 16443
   certificateKey: {{ kubernetes_kubeadm_init_upload_certs.stdout_lines[-1] | trim }}
 {% endif %}
 {% endif %}
 ---
+{% if kubernetes_version is ansible.builtin.version('1.22.0', '<') %}
 apiVersion: kubeadm.k8s.io/v1beta2
+{% else %}
+apiVersion: kubeadm.k8s.io/v1beta3
+{% endif %}
 kind: ClusterConfiguration
+kubernetesVersion: v{{ kubernetes_version }}
 controlPlaneEndpoint: "{{ kubernetes_hostname }}:6443"
 {% if kubernetes_image_repository not in ("registry.k8s.io", "k8s.gcr.io") %}
 imageRepository: "{{ kubernetes_image_repository }}"
@@ -52,11 +67,17 @@ dns:
 {% endif %}
 apiServer:
   extraArgs:
-    oidc-username-claim: email
 {% if kubernetes_oidc_issuer_url is defined %}
+    oidc-username-claim: "{{ kubernetes_oidc_username_claim }}"
     oidc-issuer-url: {{ kubernetes_oidc_issuer_url }}
     oidc-client-id: {{ kubernetes_oidc_client_id }}
 {% endif %}
+controllerManager:
+  extraArgs:
+    bind-address: 0.0.0.0
+scheduler:
+  extraArgs:
+    bind-address: 0.0.0.0
 ---
 apiVersion: kubelet.config.k8s.io/v1beta1
 kind: KubeletConfiguration
